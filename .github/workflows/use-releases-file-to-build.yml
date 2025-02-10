@@ -12,13 +12,13 @@ on:
       set_release:
         description: "Select OS Release."
         required: false
-        default: "jammy"
+        default: "bookworm"
         type: choice
         options:
-          - jammy
-          - noble
           - bookworm
           - bullseye
+          - noble
+          - jammy
       armbian_board:
         description: "Select device board."
         required: false
@@ -198,10 +198,11 @@ on:
       kernel_repo:
         description: "Set the kernel repository."
         required: false
-        default: "ophub/kernel"
+        default: "SoStufo/tvbox-kernel"
         type: choice
         options:
           - ophub/kernel
+          - SoStufo/tvbox-kernel
       kernel_usage:
         description: "Set the tags of the stable kernel."
         required: false
@@ -231,12 +232,13 @@ on:
       builder_name:
         description: "Set Armbian builder signature."
         required: false
-        default: "ophub"
+        default: "sostufo"
         type: choice
         options:
           - ophub
           - angel
           - yourname
+          - sostufo
 
 env:
   TZ: America/New_York
@@ -262,7 +264,7 @@ jobs:
           sudo rm -f /swapfile /mnt/swapfile
           sudo -E apt-get -y update
           sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* powershell openjdk* mongodb* moby* || true
-          sudo -E apt-get -y install $(curl -fsSL https://tinyurl.com/ubuntu2204-build-armbian)
+          sudo -E apt-get -y install $(curl -fsSL https://raw.githubusercontent.com/SoStufo/tvbox-armbian/refs/heads/main/compile-kernel/tools/script/ubuntu2204-build-armbian-depends)
           sudo -E systemctl daemon-reload
           #sudo -E apt-get -y full-upgrade
           sudo -E apt-get -y autoremove --purge
@@ -298,13 +300,13 @@ jobs:
           armbian_buildpath="build/output/images"
           [[ -d "${armbian_buildpath}" ]] || mkdir -p "${armbian_buildpath}"
           ln -sf /builder/build ${GITHUB_WORKSPACE}/build
-          ln -sf /builder/build /home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main/build
+          ln -sf /builder/build /home/runner/work/_actions/SoStufo/tvbox-armbian/main/build
 
           latest_version=$(curl -s \
                 -H "Accept: application/vnd.github+json" \
                 -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
                 https://api.github.com/repos/${GITHUB_REPOSITORY}/releases?per_page=100 | \
-                jq -r --arg RTK "Armbian_${{ inputs.set_release }}_" \
+                jq -r --arg RTK "Armbian_${{ inputs.set_release }}_${{ inputs.armbian_fstype }}_" \
                 --arg BOARD "-trunk_" \
                 '[.[] | select(.tag_name | contains($RTK))] |
                 map(.assets[] | select(.browser_download_url | contains($BOARD) and endswith(".img.gz"))) |
@@ -316,17 +318,20 @@ jobs:
           [[ -z "${latest_version}" || "${latest_version}" == "null" ]] && echo "Invalid Armbian image download address." && exit 1
           latest_updated_at="$(echo ${latest_version} | jq -r '.data')"
           latest_url="$(echo ${latest_version} | jq -r '.url')"
+          echo "latest_updated_at=${latest_updated_at}"
+          echo "latest_url=${latest_url}"
+          echo "latest_version=${latest_version}"
 
           armbian_filename="${latest_url##*/}"
           curl -fsSL "${latest_url}" -o "${armbian_buildpath}/${armbian_filename}"
           [[ "${?}" -ne "0" ]] && echo "Invalid Armbian image download address." && exit 1
           cd "${armbian_buildpath}" && gzip -df *.img.gz && sync
 
-          echo "build_tag=Armbian_${{ inputs.set_release }}_${{ inputs.armbian_storage }}_$(date +"%Y.%m")" >> ${GITHUB_OUTPUT}
+          echo "build_tag=Armbian_${{ inputs.set_release }}_${{ inputs.armbian_fstype }}_${{ inputs.armbian_storage }}_$(date +"%Y.%m")" >> ${GITHUB_OUTPUT}
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Rebuild Armbian [ ${{ inputs.set_release }} ]
-        uses: ophub/amlogic-s9xxx-armbian@main
+        uses: SoStufo/tvbox-armbian@main
         if: ${{ steps.down.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: armbian

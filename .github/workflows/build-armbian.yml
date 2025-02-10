@@ -12,13 +12,13 @@ on:
       set_release:
         description: "Select OS Release."
         required: false
-        default: "jammy"
+        default: "bookworm"
         type: choice
         options:
-          - jammy
-          - noble
           - bookworm
           - bullseye
+          - noble
+          - jammy
       armbian_board:
         description: "Select device board."
         required: false
@@ -198,10 +198,11 @@ on:
       kernel_repo:
         description: "Set the kernel repository."
         required: false
-        default: "ophub/kernel"
+        default: "SoStufo/tvbox-kernel"
         type: choice
         options:
           - ophub/kernel
+          - SoStufo/tvbox-kernel
       kernel_usage:
         description: "Set the tags of the stable kernel."
         required: false
@@ -231,12 +232,13 @@ on:
       builder_name:
         description: "Set Armbian builder signature."
         required: false
-        default: "ophub"
+        default: "sostufo"
         type: choice
         options:
           - ophub
           - angel
           - yourname
+          - sostufo
 
 env:
   TZ: America/New_York
@@ -263,7 +265,7 @@ jobs:
           sudo rm -f /swapfile /mnt/swapfile
           sudo -E apt-get -y update
           sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* powershell openjdk* mongodb* moby* || true
-          sudo -E apt-get -y install $(curl -fsSL https://tinyurl.com/ubuntu2204-build-armbian)
+          sudo -E apt-get -y install $(curl -fsSL https://raw.githubusercontent.com/SoStufo/tvbox-armbian/refs/heads/main/compile-kernel/tools/script/ubuntu2204-build-armbian-depends)
           sudo -E systemctl daemon-reload
           #sudo -E apt-get -y full-upgrade
           sudo -E apt-get -y autoremove --purge
@@ -299,7 +301,7 @@ jobs:
           df -hT ${PWD}
           git clone -q --single-branch --depth=1 --branch=main https://github.com/armbian/build.git build
           ln -sf /builder/build ${GITHUB_WORKSPACE}/build
-          ln -sf /builder/build /home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main/build
+          ln -sf /builder/build /home/runner/work/_actions/SoStufo/tvbox-armbian/main/build
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Compile Armbian [ ${{ inputs.set_release }} ]
@@ -324,7 +326,8 @@ jobs:
 
           # Output cleaning result information
           df -hT ${PWD}
-          echo "build_tag=Armbian_${{ inputs.set_release }}_${{ inputs.armbian_storage }}_$(date +"%Y.%m")" >> ${GITHUB_OUTPUT}
+          #echo "build_tag=Armbian_${{ inputs.set_release }}_${{ inputs.armbian_storage }}_$(date +"%Y.%m")" >> ${GITHUB_OUTPUT}
+          echo "build_tag=Armbian_${{ inputs.set_release }}_${{ inputs.armbian_fstype }}_${{ inputs.armbian_storage }}_$(date +"%Y.%m")" >> ${GITHUB_OUTPUT}
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Upload Armbian image to Release
@@ -337,7 +340,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Rebuild Armbian
-        uses: ophub/amlogic-s9xxx-armbian@main
+        uses: SoStufo/tvbox-armbian@main
         if: ${{ steps.clean.outputs.status }} == 'success' && !cancelled()
         with:
           build_target: armbian
