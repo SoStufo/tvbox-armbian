@@ -26,7 +26,7 @@
 # Armbian firmware config info record file
 ophub_release_file="/etc/ophub-release"
 # The script files download repository
-script_repo="https://github.com/ophub/amlogic-s9xxx-armbian.git"
+script_repo="https://github.com/SoStufo/amlogic-s9xxx-armbian.git"
 script_dir="build-armbian/armbian-files"
 # Operation instruction and service storage path
 sbin_path="/usr/sbin"
