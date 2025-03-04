@@ -23,6 +23,8 @@ echo "[$(date +"%Y.%m.%d.%H:%M:%S")] Start the custom service..." >${custom_log}
 # Set the release check file
 ophub_release_file="/etc/ophub-release"
 [[ -f "${ophub_release_file}" ]] && FDT_FILE="$(cat ${ophub_release_file} | grep -oE 'meson.*dtb')" || FDT_FILE=""
+[[ -z "${FDT_FILE}" && -f "/boot/uEnv.txt" ]] && FDT_FILE="$(grep -E '^FDT=.*\.dtb$' /boot/uEnv.txt | sed -E 's#.*/##')" || FDT_FILE=""
+[[ -z "${FDT_FILE}" && -f "/boot/armbianEnv.txt" ]] && FDT_FILE="$(grep -E '^fdtfile=.*\.dtb$' /boot/armbianEnv.txt | sed -E 's#.*/##')" || FDT_FILE=""
 
 # For Tencent Aurora 3Pro (s905x3-b) box [ /etc/modprobe.d/blacklist.conf : blacklist btmtksdio ]
 [[ "${FDT_FILE}" == "meson-sm1-skyworth-lb2004-a4091.dtb" ]] && {
@@ -40,6 +42,17 @@ ophub_release_file="/etc/ophub-release"
     gpioset 4 21=1 2>/dev/null
     gpioset 4 22=1 2>/dev/null
     echo "[$(date +"%Y.%m.%d.%H:%M:%S")] USB successfully enabled on Swan1-w28(rk3568)." >>${custom_log}
+}
+
+# For smart-am60(rk3588) board Bluetooth contrl
+[[ "${FDT_FILE}" == "rk3588-smart-am60.dtb" ]] && {
+    rfkill block all
+    chmod a+x /lib/firmware/ap6276p/brcm_patchram_plus1
+    sleep .5
+    rfkill unblock all
+    /lib/firmware/ap6276p/brcm_patchram_plus1 --enable_hci --no2bytes --use_baudrate_for_download --tosleep 200000 --baudrate 1500000 --patchram /lib/firmware/ap6276p/ /dev/ttyS9 &
+
+    echo "[$(date +"%Y.%m.%d.%H:%M:%S")] Bluetooth firmware successfully download on Smart-am60(rk3588)." >>${custom_log}
 }
 
 # Restart ssh service
