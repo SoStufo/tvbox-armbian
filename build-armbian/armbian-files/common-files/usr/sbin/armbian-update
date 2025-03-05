@@ -803,19 +803,19 @@ sos_kernel() {
 help_info() {
     clear
     cat <<EOF
-  ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-  │  Example: armbian-update -k 5.15.50 -u dev                                                                                  │
-  ├───────────┬──────────────┬──────────────────────────────────┬───────────────────────────────────────────────────────────────┤
-  │  Optional │ Default      │ Value                            │ Description                                                   │
-  ├───────────┼──────────────┼──────────────────────────────────┼───────────────────────────────────────────────────────────────┤
+  ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │  Example: armbian-update -k 5.15.50 -u dev                                                                                          │
+  ├───────────┬──────────────────────┬──────────────────────────────────┬───────────────────────────────────────────────────────────────┤
+  │  Optional │ Default              │ Value                            │ Description                                                   │
+  ├───────────┼──────────────────────┼──────────────────────────────────┼───────────────────────────────────────────────────────────────┤
   │  -r       │ SoStufo/tvbox-kernel │ <owner>/<repo>                   │ Set the repository for downloading kernels from github.com    │
-  │  -u       │ automate     │ stable/flippy/dev/beta/rk3588/h6 │ Set the tags suffix of the kernel used                        │
-  │  -k       │ latest       │ kernel-version                   │ Set the kernel version                                        │
-  │  -c       │ None         │ domain-name                      │ Set the cdn domain name for accelerated access to github.com  │
-  │  -b       │ yes          │ yes/no                           │ Automatically backup the current system kernel                │
-  │  -m       │ no           │ yes/no                           │ Use Mainline u-boot                                           │
-  │  -s       │ None         │ None/mmcblkX/nvmeXnX/sdX         │ [SOS] Restore the system kernel of eMMC/NVMe/sdX disk         │
-  └───────────┴──────────────┴──────────────────────────────────┴───────────────────────────────────────────────────────────────┘
+  │  -u       │ automate             │ stable/flippy/dev/beta/rk3588/h6 │ Set the tags suffix of the kernel used                        │
+  │  -k       │ latest               │ kernel-version                   │ Set the kernel version                                        │
+  │  -c       │ None                 │ domain-name                      │ Set the cdn domain name for accelerated access to github.com  │
+  │  -b       │ yes                  │ yes/no                           │ Automatically backup the current system kernel                │
+  │  -m       │ no                   │ yes/no                           │ Use Mainline u-boot                                           │
+  │  -s       │ None                 │ None/mmcblkX/nvmeXnX/sdX         │ [SOS] Restore the system kernel of eMMC/NVMe/sdX disk         │
+  └───────────┴──────────────────────┴──────────────────────────────────┴───────────────────────────────────────────────────────────────┘
 EOF
     exit 0
 }
