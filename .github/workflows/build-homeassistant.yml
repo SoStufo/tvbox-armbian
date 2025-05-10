@@ -16,6 +16,7 @@ on:
         default: "bookworm"
         type: choice
         options:
+          - trixie
           - bookworm
           - bullseye
           - noble
