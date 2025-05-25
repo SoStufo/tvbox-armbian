@@ -1,5 +1,7 @@
 # Armbian
 
+Forked from [ophub](https://github.com/ophub)
+
 View Chinese description | [查看中文说明](README.cn.md)
 
 Armbian is a lightweight Linux system specially built for ARM chips based on Debian/Ubuntu. The Armbian system is lean, clean, and 100% compatible with and inherits the features and rich software ecosystem of the Debian/Ubuntu system. It can run securely and stably in TF/SD/USB and the device's eMMC. This project preserves the integrity of the official Armbian system and further expands its usage on devices such as TV boxes that are not officially supported. It adds some convenient operation commands. Now, you can replace the Android TV system on your TV box with the Armbian system, turning it into a powerful server.

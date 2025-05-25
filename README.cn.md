@@ -1,5 +1,7 @@
 # Armbian / 岸边
 
+Forked from [ophub](https://github.com/ophub)
+
 查看英文说明 | [View English description](README.md)
 
 Armbian（中文名：岸边）系统是基于 Debian/Ubuntu 而构建的专门用于 ARM 芯片的轻量级 Linux 系统。Armbian 系统精益、干净，并且 100% 兼容并继承了 Debian/Ubuntu 系统的功能和丰富的软件生态，可以安全稳定地运行在 TF/SD/USB 及设备的 eMMC 里。这个项目保留了 Armbian 官方系统的完整性，并进一步拓展了在电视盒子等一些非官方支持设备上的使用，增加了一些便捷操作指令。现在你可以将电视盒子的安卓 TV 系统更换为 Armbian 系统，让他成为一台功能强大的服务器。
