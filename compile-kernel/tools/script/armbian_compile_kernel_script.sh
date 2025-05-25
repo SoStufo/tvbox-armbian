@@ -66,6 +66,7 @@ ophub_release_file="/etc/ophub-release"
 repo_owner="unifreq"
 repo_branch="main"
 build_kernel=("6.1.y" "6.12.y")
+all_kernel=("5.4.y" "5.10.y" "5.15.y" "6.1.y" "6.6.y" "6.12.y")
 # Set whether to use the latest kernel, options: [ true / false ]
 auto_kernel="true"
 # Set whether to apply custom kernel patches, options: [ true / false ]
@@ -76,14 +77,18 @@ custom_name="-ophub"
 package_list="all"
 # Set the compression format, options: [ gzip / lzma / xz / zstd ]
 compress_format="xz"
+# Set whether to automatically delete the source code after the kernel is compiled
+delete_source="false"
+# Set make log silent output (recommended to use 'true' when github runner has insufficient space)
+silent_log="false"
 
 # Compile toolchain download mirror, run on Armbian
 dev_repo="https://github.com/ophub/kernel/releases/download/dev"
 # Arm GNU Toolchain source: https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
-gun_file="arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-elf.tar.xz"
+gun_file="arm-gnu-toolchain-14.2.rel1-aarch64-aarch64-none-linux-gnu.tar.xz"
 # Set the toolchain path
 toolchain_path="/usr/local/toolchain"
-# Set the default cross-compilation toolchain: [ clang / gcc / gcc-13.2, etc. ]
+# Set the default cross-compilation toolchain: [ clang / gcc / gcc-14.2, etc. ]
 toolchain_name="gcc"
 
 # Set font color
@@ -104,16 +109,20 @@ init_var() {
     echo -e "${STEPS} Start Initializing Variables..."
 
     # If it is followed by [ : ], it means that the option requires a parameter value
-    get_all_ver="$(getopt "k:a:n:m:p:r:t:c:" "${@}")"
+    get_all_ver="$(getopt "k:a:n:m:p:r:t:c:d:s:" "${@}")"
 
     while [[ -n "${1}" ]]; do
         case "${1}" in
         -k | --kernel)
             if [[ -n "${2}" ]]; then
-                oldIFS="${IFS}"
-                IFS="_"
-                build_kernel=(${2})
-                IFS="${oldIFS}"
+                if [[ "${2}" == "all" ]]; then
+                    build_kernel=(${all_kernel[@]})
+                else
+                    oldIFS="${IFS}"
+                    IFS="_"
+                    build_kernel=(${2})
+                    IFS="${oldIFS}"
+                fi
                 shift
             else
                 error_msg "Invalid -k parameter [ ${2} ]!"
@@ -176,6 +185,22 @@ init_var() {
                 error_msg "Invalid -c parameter [ ${2} ]!"
             fi
             ;;
+        -d | --DeleteSource)
+            if [[ -n "${2}" ]]; then
+                delete_source="${2}"
+                shift
+            else
+                error_msg "Invalid -d parameter [ ${2} ]!"
+            fi
+            ;;
+        -s | --SilentLog)
+            if [[ -n "${2}" ]]; then
+                silent_log="${2}"
+                shift
+            else
+                error_msg "Invalid -s parameter [ ${2} ]!"
+            fi
+            ;;
         *)
             error_msg "Invalid option [ ${1} ]!"
             ;;
@@ -195,7 +220,7 @@ init_var() {
     # Set the gcc version code
     [[ "${toolchain_name}" =~ ^gcc-[0-9]+.[0-9]+ ]] && {
         gcc_version_code="${toolchain_name#*-}"
-        gun_file="arm-gnu-toolchain-${gcc_version_code}.rel1-aarch64-aarch64-none-elf.tar.xz"
+        gun_file="arm-gnu-toolchain-${gcc_version_code}.rel1-aarch64-aarch64-none-linux-gnu.tar.xz"
     }
 
     # Set compilation parameters
@@ -275,7 +300,7 @@ toolchain_check() {
         export PATH="${path_gcc}"
 
         # Set cross compilation parameters
-        export CROSS_COMPILE="${toolchain_path}/${gun_file//.tar.xz/}/bin/aarch64-none-elf-"
+        export CROSS_COMPILE="${toolchain_path}/${gun_file//.tar.xz/}/bin/aarch64-none-linux-gnu-"
         export CC="${CROSS_COMPILE}gcc"
         export LD="${CROSS_COMPILE}ld.bfd"
         export MFLAGS=""
@@ -291,7 +316,7 @@ query_version() {
 
     # Query the latest kernel in a loop
     i=1
-    for KERNEL_VAR in ${build_kernel[*]}; do
+    for KERNEL_VAR in ${build_kernel[@]}; do
         echo -e "${INFO} (${i}) Auto query the latest kernel version of the same series for [ ${KERNEL_VAR} ]"
         # Identify the kernel mainline
         MAIN_LINE="$(echo ${KERNEL_VAR} | awk -F '.' '{print $1"."$2}')"
@@ -313,7 +338,7 @@ query_version() {
 
     # Reset the kernel array to the latest kernel version
     unset build_kernel
-    build_kernel="${tmp_arr_kernels[*]}"
+    build_kernel="${tmp_arr_kernels[@]}"
 }
 
 apply_patch() {
@@ -323,6 +348,7 @@ apply_patch() {
     # Apply the common kernel patches
     if [[ -d "${kernel_patch_path}/common-kernel-patches" ]]; then
         echo -e "${INFO} Copy common kernel patches..."
+        rm -f ${kernel_path}/${local_kernel_path}/*.patch
         cp -vf ${kernel_patch_path}/common-kernel-patches/*.patch -t ${kernel_path}/${local_kernel_path}
 
         cd ${kernel_path}/${local_kernel_path}
@@ -338,6 +364,7 @@ apply_patch() {
     # Apply the dedicated kernel patches
     if [[ -d "${kernel_patch_path}/${local_kernel_path}" ]]; then
         echo -e "${INFO} Copy [ ${local_kernel_path} ] version dedicated kernel patches..."
+        rm -f ${kernel_path}/${local_kernel_path}/*.patch
         cp -vf ${kernel_patch_path}/${local_kernel_path}/*.patch -t ${kernel_path}/${local_kernel_path}
 
         cd ${kernel_path}/${local_kernel_path}
@@ -500,15 +527,18 @@ compile_dtbs() {
 compile_kernel() {
     cd ${kernel_path}/${local_kernel_path}
 
+    # Set the make log silent output
+    [[ "${silent_log}" == "true" || "${silent_log}" == "yes" ]] && silent_print="-s" || silent_print=""
+
     # Make kernel
     echo -e "${STEPS} Start compilation kernel [ ${local_kernel_path} ]..."
-    make ${MAKE_SET_STRING} Image modules dtbs -j${PROCESS}
+    make ${silent_print} ${MAKE_SET_STRING} Image modules dtbs -j${PROCESS}
     #make ${MAKE_SET_STRING} bindeb-pkg KDEB_COMPRESS=xz KBUILD_DEBARCH=arm64 -j${PROCESS}
     [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} The kernel is compiled successfully."
 
     # Install modules
     echo -e "${STEPS} Install modules ..."
-    make ${MAKE_SET_STRING} INSTALL_MOD_PATH=${output_path}/modules modules_install
+    make ${silent_print} ${MAKE_SET_STRING} INSTALL_MOD_PATH=${output_path}/modules modules_install
     [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} The modules is installed successfully."
 
     # Strip debug information
@@ -679,6 +709,7 @@ compile_selection() {
     tar -czf ${kernel_version}.tar.gz ${kernel_version}
 
     echo -e "${INFO} Kernel series files are stored in [ ${output_path} ]."
+    echo -e "${INFO} Current space usage: \n$(df -hT ${output_path}) \n"
 }
 
 clean_tmp() {
@@ -687,6 +718,7 @@ clean_tmp() {
 
     sync && sleep 3
     rm -rf ${output_path}/{boot/,dtb/,modules/,header/,${kernel_version}/}
+    [[ "${delete_source}" == "true" ]] && rm -rf ${kernel_path}/* 2>/dev/null
     rm -rf ${tmp_backup_path}
 
     echo -e "${SUCCESS} All processes have been completed."
@@ -696,7 +728,7 @@ loop_recompile() {
     cd ${current_path}
 
     j="1"
-    for k in ${build_kernel[*]}; do
+    for k in ${build_kernel[@]}; do
         # kernel_version, such as [ 6.1.15 ]
         kernel_version="${k}"
         # kernel <VERSION> and <PATCHLEVEL>, such as [ 6.1 ]
@@ -712,6 +744,9 @@ loop_recompile() {
             server_kernel_repo="${code_owner}/${code_repo}"
             local_kernel_path="${code_repo}-${code_branch}"
         fi
+
+        # Show server start information
+        echo -e "${INFO} Server space usage before starting to compile: \n$(df -hT ${kernel_path}) \n"
 
         # Check disk space size
         echo -ne "(${j}) Start compiling the kernel [\033[92m ${kernel_version} \033[0m]. "
@@ -756,10 +791,7 @@ echo -e "${INFO} Kernel Package: [ ${package_list} ]"
 echo -e "${INFO} kernel signature: [ ${custom_name} ]"
 echo -e "${INFO} Latest kernel version: [ ${auto_kernel} ]"
 echo -e "${INFO} kernel initrd compress: [ ${compress_format} ]"
-echo -e "${INFO} Kernel List: [ $(echo ${build_kernel[*]} | xargs) ] \n"
-
-# Show server start information
-echo -e "${INFO} Server space usage before starting to compile: \n$(df -hT ${kernel_path}) \n"
+echo -e "${INFO} Kernel List: [ $(echo ${build_kernel[@]} | xargs) ] \n"
 
 # Loop to compile the kernel
 loop_recompile
