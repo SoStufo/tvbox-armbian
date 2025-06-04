@@ -109,11 +109,14 @@ init_var() {
     echo -e "${STEPS} Start Initializing Variables..."
 
     # If it is followed by [ : ], it means that the option requires a parameter value
-    get_all_ver="$(getopt "k:a:n:m:p:r:t:c:d:s:" "${@}")"
+    local options="k:a:n:m:p:r:t:c:d:s:"
+    parsed_args=$(getopt -o "${options}" -- "${@}")
+    [[ ${?} -ne 0 ]] && error_msg "Parameter parsing failed."
+    eval set -- "${parsed_args}"
 
-    while [[ -n "${1}" ]]; do
+    while true; do
         case "${1}" in
-        -k | --kernel)
+        -k | --Kernel)
             if [[ -n "${2}" ]]; then
                 if [[ "${2}" == "all" ]]; then
                     build_kernel=(${all_kernel[@]})
@@ -123,15 +126,15 @@ init_var() {
                     build_kernel=(${2})
                     IFS="${oldIFS}"
                 fi
-                shift
+                shift 2
             else
                 error_msg "Invalid -k parameter [ ${2} ]!"
             fi
             ;;
-        -a | --autoKernel)
+        -a | --AutoKernel)
             if [[ -n "${2}" ]]; then
                 auto_kernel="${2}"
-                shift
+                shift 2
             else
                 error_msg "Invalid -a parameter [ ${2} ]!"
             fi
@@ -140,7 +143,7 @@ init_var() {
             if [[ -n "${2}" ]]; then
                 custom_name="${2// /}"
                 [[ "${custom_name:0:1}" != "-" ]] && custom_name="-${custom_name}"
-                shift
+                shift 2
             else
                 error_msg "Invalid -n parameter [ ${2} ]!"
             fi
@@ -148,7 +151,7 @@ init_var() {
         -m | --MakePackage)
             if [[ -n "${2}" ]]; then
                 package_list="${2}"
-                shift
+                shift 2
             else
                 error_msg "Invalid -m parameter [ ${2} ]!"
             fi
@@ -156,15 +159,15 @@ init_var() {
         -p | --AutoPatch)
             if [[ -n "${2}" ]]; then
                 auto_patch="${2}"
-                shift
+                shift 2
             else
                 error_msg "Invalid -p parameter [ ${2} ]!"
             fi
             ;;
-        -r | --repo)
+        -r | --Repository)
             if [[ -n "${2}" ]]; then
                 repo_owner="${2}"
-                shift
+                shift 2
             else
                 error_msg "Invalid -r parameter [ ${2} ]!"
             fi
@@ -172,7 +175,7 @@ init_var() {
         -t | --Toolchain)
             if [[ -n "${2}" ]]; then
                 toolchain_name="${2}"
-                shift
+                shift 2
             else
                 error_msg "Invalid -t parameter [ ${2} ]!"
             fi
@@ -180,7 +183,7 @@ init_var() {
         -c | --Compress)
             if [[ -n "${2}" ]]; then
                 compress_format="${2}"
-                shift
+                shift 2
             else
                 error_msg "Invalid -c parameter [ ${2} ]!"
             fi
@@ -188,7 +191,7 @@ init_var() {
         -d | --DeleteSource)
             if [[ -n "${2}" ]]; then
                 delete_source="${2}"
-                shift
+                shift 2
             else
                 error_msg "Invalid -d parameter [ ${2} ]!"
             fi
@@ -196,16 +199,20 @@ init_var() {
         -s | --SilentLog)
             if [[ -n "${2}" ]]; then
                 silent_log="${2}"
-                shift
+                shift 2
             else
                 error_msg "Invalid -s parameter [ ${2} ]!"
             fi
             ;;
+        --)
+            shift
+            break
+            ;;
         *)
-            error_msg "Invalid option [ ${1} ]!"
+            [[ -n "${1}" ]] && error_msg "Invalid option [ ${1} ]!"
+            break
             ;;
         esac
-        shift
     done
 
     # Receive the value entered by the [ -r ] parameter
@@ -227,20 +234,9 @@ init_var() {
     export SRC_ARCH="arm64"
     export LOCALVERSION="${custom_name}"
 
-    # Check release file
-    [[ -f "${ophub_release_file}" ]] || error_msg "missing [ ${ophub_release_file} ] file."
-
-    # Get values
-    source "${ophub_release_file}"
-    PLATFORM="${PLATFORM}"
-    FDTFILE="${FDTFILE}"
-
-    # Early devices did not add platform parameters, auto-completion
-    [[ -z "${PLATFORM}" && -n "${FDTFILE}" ]] && {
-        [[ ${FDTFILE:0:5} == "meson" ]] && PLATFORM="amlogic" || PLATFORM="rockchip"
-        echo "PLATFORM='${PLATFORM}'" >>${ophub_release_file}
-    }
-    echo -e "${INFO} Armbian PLATFORM: [ ${PLATFORM} ]"
+    # Get Armbian PLATFORM value
+    PLATFORM="$(cat ${ophub_release_file} 2>/dev/null | grep -E "^PLATFORM=.*" | cut -d"'" -f2)"
+    [[ -n "${PLATFORM}" ]] && echo -e "${INFO} Armbian PLATFORM: [ ${PLATFORM} ]"
 }
 
 toolchain_check() {
@@ -559,12 +555,13 @@ generate_uinitrd() {
     # Backup current system files for /boot
     echo -e "${INFO} Backup the files in the [ ${boot_backup_path} ] directory."
     rm -rf ${boot_backup_path} && mkdir -p ${boot_backup_path}
-    mv -f /boot/{config-*,initrd.img-*,System.map-*,vmlinuz-*,uInitrd*,*Image} -t ${boot_backup_path}
+    mv -f /boot/{config-*,initrd.img-*,System.map-*,vmlinuz-*,uInitrd*,*Image} -t ${boot_backup_path} 2>/dev/null
     # Copy /boot related files into armbian system
+    [[ -d "/boot" ]] || mkdir -p /boot
     cp -f ${kernel_path}/${local_kernel_path}/System.map /boot/System.map-${kernel_outname}
     cp -f ${kernel_path}/${local_kernel_path}/.config /boot/config-${kernel_outname}
     cp -f ${kernel_path}/${local_kernel_path}/arch/${SRC_ARCH}/boot/Image /boot/vmlinuz-${kernel_outname}
-    if [[ "${PLATFORM}" == "rockchip" || "${PLATFORM}" == "allwinner" ]]; then
+    if [[ -z "${PLATFORM}" || "${PLATFORM}" =~ ^(rockchip|allwinner)$ ]]; then
         cp -f /boot/vmlinuz-${kernel_outname} /boot/Image
     else
         cp -f /boot/vmlinuz-${kernel_outname} /boot/zImage
@@ -574,8 +571,9 @@ generate_uinitrd() {
     # Backup current system files for /usr/lib/modules
     echo -e "${INFO} Backup the files in the [ ${modules_backup_path} ] directory."
     rm -rf ${modules_backup_path} && mkdir -p ${modules_backup_path}
-    mv -f /usr/lib/modules/$(uname -r) -t ${modules_backup_path}
+    mv -f /usr/lib/modules/$(uname -r) -t ${modules_backup_path} 2>/dev/null
     # Copy modules files
+    [[ -d "/usr/lib/modules" ]] || mkdir -p /usr/lib/modules
     cp -rf ${output_path}/modules/lib/modules/${kernel_outname} -t /usr/lib/modules
     #echo -e "${INFO} Kernel copy results in the [ /usr/lib/modules ] directory: \n$(ls -l /usr/lib/modules) \n"
 
@@ -614,11 +612,11 @@ generate_uinitrd() {
 
     # Restore the files in the [ /boot ] directory
     mv -f *${kernel_outname} ${output_path}/boot
-    mv -f ${boot_backup_path}/* -t .
+    mv -f ${boot_backup_path}/* -t . 2>/dev/null
 
     # Restore the files in the [ /usr/lib/modules ] directory
     rm -rf /usr/lib/modules/${kernel_outname}
-    mv -f ${modules_backup_path}/* -t /usr/lib/modules
+    mv -f ${modules_backup_path}/* -t /usr/lib/modules 2>/dev/null
 
     # Remove temporary backup directory
     sync && sleep 3
@@ -791,6 +789,8 @@ echo -e "${INFO} Kernel Package: [ ${package_list} ]"
 echo -e "${INFO} kernel signature: [ ${custom_name} ]"
 echo -e "${INFO} Latest kernel version: [ ${auto_kernel} ]"
 echo -e "${INFO} kernel initrd compress: [ ${compress_format} ]"
+echo -e "${INFO} Delete source: [ ${delete_source} ]"
+echo -e "${INFO} Silent log: [ ${silent_log} ]"
 echo -e "${INFO} Kernel List: [ $(echo ${build_kernel[@]} | xargs) ] \n"
 
 # Loop to compile the kernel

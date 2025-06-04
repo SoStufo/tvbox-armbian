@@ -256,13 +256,16 @@ sudo apt-get install -y $(cat compile-kernel/tools/script/ubuntu2204-build-armbi
 | ${{ env.PACKAGED_OUTPUTDATE }}      | 04.13.1058    | 打包日期（月.日.时分）         |
 | ${{ env.PACKAGED_STATUS }}          | success       | 打包状态：success / failure  |
 
+## 制作 Armbian Docker 镜像
+
+Armbian 系统 [Docker](https://hub.docker.com/u/ophub) 镜像的制作方法可以参考 [armbian_docker](./compile-kernel/tools/script/docker) 制作脚本。
+
 ## Armbian 系统默认信息
 
-| 名称 | 值 |
-| ---- | ---- |
-| 默认 IP | 从路由器获取 IP |
-| 默认账号 | root |
-| 默认密码 | 1234 |
+| 系统名称        | 默认账号 | 默认密码  | SSH 端口 | IP 地址 |
+| -------------- | ------- | ------- | ------- | ------- |
+| [Armbian.OS](https://github.com/ophub/amlogic-s9xxx-armbian/releases) | root | 1234 | 22 | 从路由器获取 IP |
+| [Armbian.Docker](https://hub.docker.com/u/ophub) | root | 1234 | 22 | 使用宿主机 IP |
 
 ## 使用 GitHub Actions 编译内核
 

@@ -256,13 +256,16 @@ To upload to `Releases`, you need to set `Workflow read/write permissions` for r
 | ${{ env.PACKAGED_OUTPUTDATE }}   | 04.13.1058    | Packaging date (month.day.hourminute) |
 | ${{ env.PACKAGED_STATUS }}       | success       | Packaging status: success / failure   |
 
+## Build Armbian Docker image
+
+The method for creating the [Docker](https://hub.docker.com/u/ophub) image of the Armbian system can refer to the [armbian_docker](./compile-kernel/tools/script/docker) build script.
+
 ## Default Information for Armbian System
 
-| Name | Value |
-| ---- | ---- |
-| Default IP | Obtain IP from router |
-| Default account | root |
-| Default password | 1234 |
+| System Name    | Default Username | Default Password  | SSH Port  | IP Address  |
+| -------------- | ---------------- | ----------------- | --------- | ----------- |
+| [Armbian.OS](https://github.com/ophub/amlogic-s9xxx-armbian/releases) | root | 1234 | 22 | Obtain IP from router |
+| [Armbian.Docker](https://hub.docker.com/u/ophub) | root | 1234 | 22 | Use host machine’s IP |
 
 ## Compiling Kernel using GitHub Actions
 
